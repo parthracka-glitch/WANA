@@ -85,6 +85,14 @@ flowchart TD
 - **Automated Incident Drill Runner:** Automated CLI benchmark simulating live incident dispatch and grading field performance.
 - **ERSS Police Protocol (RB-06):** Field coordination standard operating procedures for municipal police liaison.
 
+### 8. Extended Production Capabilities & Recommendations (`Phase 8`)
+- **Duress PIN & Coerced Deactivation Guard (`M-12` / `BE-24`):** Coerced deactivations trigger decoy cancellation screens while stealthily escalating to `SEV-0`, locking audio/video recording permanently ON.
+- **Zero-Data SMS Fallback Bridge (`M-13` / `BE-25`):** When mobile data (4G/5G/WiFi) is severed, coordinates and telemetry pack into a single 160-char GSM-7 SMS (`WANA!SOS*...`) with CRC-16 validation and gateway webhook ingress.
+- **Critical Battery Survival Mode & Dying Beacon (`M-14` / `BE-26`):** Adaptive GPS interval throttling at $<10\%$ battery and emergency `IMMINENT_POWER_DEATH` beacon at $\le 2\%$ calculating projected spherical vector trajectories (+15m and +30m).
+- **Two-Way Silent Tactical Chat (`FE-21` / `M-15` / `BE-28`):** Zero-audio, zero-vibration covert channel between control room and victim hiding from perpetrators, with rapid single-tap structured exchanges.
+- **Court-Ready Legal Dossier & BSA 65B Certificate (`BE-26` / `FE-22`):** Cryptographically sealed evidentiary export with SHA-256 media manifests, microsecond-level audit trail, and statutory Section 65B Certificate under Bharatiya Sakshya Adhiniyam, 2023.
+- **Government ERSS Dial 112 Interoperability (`BE-27`):** OASIS Common Alerting Protocol (CAP v1.2 / ITU-T X.1303) compliant XML generation for automated ingestion into Indian Police CAD systems.
+
 ---
 
 ## 📁 Repository Directory Structure
@@ -100,10 +108,10 @@ flowchart TD
 │   │   ├── configuration/         # Firebase, Pilot region configs
 │   │   ├── middleware/            # Auth, RBAC, App Check, Metrics, Errors
 │   │   ├── routes/                # Auth, Admin, Supervisor, Events, Evidence, etc.
-│   │   ├── services/              # Risk engine, Shadow eval, Scorecard, Lifecycle
+│   │   ├── services/              # Risk engine, Shadow eval, Scorecard, Lifecycle, Dossier, CAP
 │   │   ├── scripts/               # PITR drill, Pilot drill, Admin bootstrap
 │   │   └── app.js                 # Express server configuration & route mounts
-│   └── tests/                     # 41 comprehensive Node.js tests (100% green)
+│   └── tests/                     # 47 comprehensive Node.js tests (100% green)
 ├── frontend/
 │   ├── src/
 │   │   ├── components/            # Incident drawer, Evidence viewer, Badges

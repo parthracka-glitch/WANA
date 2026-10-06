@@ -75,6 +75,62 @@ router.post('/:eventId/heartbeat', optionalAuthMiddleware, async (req, res, next
 });
 
 /**
+ * POST /events/:eventId/duress-cancel (M-12 / BE-24)
+ * Secretly escalates an active incident to SEV-0 DURESS when coerced deactivation occurs.
+ * Citizen receives realistic decoy cancellation response to appease perpetrator.
+ */
+router.post('/:eventId/duress-cancel', optionalAuthMiddleware, async (req, res, next) => {
+  try {
+    const { eventId } = req.params;
+    const result = await EventLifecycleService.handleDuressDeactivation({
+      eventId,
+      callerUid: req.user?.uid || null,
+      payload: req.body,
+      req,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: 'Emergency deactivation processed.',
+      decoyApproved: true,
+      data: result,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * POST /events/:eventId/battery-beacon (M-14 / BE-26)
+ * Ingests emergency dying-gasp beacon when mobile battery falls to <= 2%.
+ */
+router.post('/:eventId/battery-beacon', optionalAuthMiddleware, async (req, res, next) => {
+  try {
+    const { eventId } = req.params;
+    const { batteryLevel, beaconType, lastKnownLocation, speed, bearing, projections } = req.body;
+
+    const result = await EventLifecycleService.recordBatteryBeacon({
+      eventId,
+      batteryLevel,
+      beaconType,
+      lastKnownLocation,
+      speed,
+      bearing,
+      projections,
+      req,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: 'Critical battery beacon recorded.',
+      data: result,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
  * GET /events/:eventId/breadcrumbs (M-02)
  * Returns the recorded GPS route breadcrumbs for an incident.
  */

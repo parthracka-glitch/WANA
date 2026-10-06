@@ -26,6 +26,10 @@ function getDistanceKm(lat1, lon1, lat2, lon2) {
  * Implements idempotent SOS ingestion, geospatial routing, atomic closure, and escalation.
  */
 class EventLifecycleService {
+  static getDb() {
+    return this.customDb || admin.firestore();
+  }
+
   /**
    * Server-Side Geospatial Region Routing (BE-16)
    * Resolves region based on geofence proximity (< 50km).
@@ -426,6 +430,7 @@ class EventLifecycleService {
       throw new AppError('Valid latitude and longitude coordinates are required.', 400, 'INVALID_COORDINATES');
     }
 
+    const db = EventLifecycleService.getDb();
     const eventRef = db.collection('ongoingEvents').doc(eventId);
     const eventDoc = await eventRef.get();
 
@@ -470,6 +475,178 @@ class EventLifecycleService {
       location: updatePayload.location,
       stale: false,
       timestamp: new Date().toISOString(),
+    };
+  }
+
+  /**
+   * Covert Duress Deactivation Handler (M-12 / BE-24)
+   * Triggered when victim is coerced to enter Duress PIN under threat.
+   * Does NOT resolve the event; escalates to SEV-0 DURESS_ESCALATED with covert locks.
+   */
+  static async handleDuressDeactivation({
+    eventId,
+    callerUid = null,
+    payload = {},
+    req = null,
+  }) {
+    if (!eventId || typeof eventId !== 'string') {
+      throw new AppError("Invalid or missing 'eventId'.", 400, 'INVALID_EVENT_ID');
+    }
+
+    const db = EventLifecycleService.getDb();
+    const eventRef = db.collection('ongoingEvents').doc(eventId);
+    const eventDoc = await eventRef.get();
+
+    if (!eventDoc.exists) {
+      throw new AppError(`Active incident '${eventId}' not found.`, 404, 'EVENT_NOT_FOUND');
+    }
+
+    const eventData = eventDoc.data();
+    const now = admin.firestore.FieldValue.serverTimestamp();
+
+    const updatePayload = {
+      status: 'ESCALATED_DURESS',
+      duressDetected: true,
+      covertLockActive: true,
+      hostilePerpetratorPresent: true,
+      evidenceRecordingLocked: true,
+      duressReportedAt: now,
+      updatedAt: now,
+    };
+
+    await eventRef.update(updatePayload);
+
+    // High Priority SEV-0 Notification to Regional Control Room
+    NotificationService.notifyRegionalSupervisors({
+      regionId: eventData.regionId,
+      eventId,
+      title: '🚨 SEV-0 CRITICAL: COERCED DURESS CANCELLATION DETECTED',
+      body: `Victim coerced into deactivation under duress! Hostile perpetrator present at scene. Audio/Video recording locked covertly ON.`,
+      priority: 'high',
+      data: {
+        eventId,
+        regionId: eventData.regionId,
+        sevLevel: 'SEV-0',
+        duressAlert: 'true',
+      },
+    }).catch((err) => console.warn('Non-fatal notification dispatch error:', err.message));
+
+    // Audit Log Entry
+    await writeAuditLog({
+      actorUid: callerUid || eventData.sos_clicked_by_uid || 'covert_duress_victim',
+      actorRole: 'victim',
+      action: 'DURESS_DEACTIVATION_ESCALATED',
+      targetId: eventId,
+      regionId: eventData.regionId,
+      details: {
+        covertTimestamp: payload.covertTimestamp || new Date().toISOString(),
+        hostilePerpetratorPresent: true,
+        action: payload.action || 'DURESS_COERCED_DEACTIVATION',
+      },
+      req,
+      customDocId: `audit_${eventId}_duress_${Date.now()}`,
+    });
+
+    return {
+      success: true,
+      eventId,
+      status: 'ESCALATED_DURESS',
+      covertReceipt: true,
+      decoyApproved: true,
+    };
+  }
+
+  /**
+   * Critical Battery Beacon & Vector Projector (M-14 / BE-26)
+   * Receives emergency dying-gasp beacon when phone battery reaches <= 2%.
+   */
+  static async recordBatteryBeacon({
+    eventId,
+    batteryLevel,
+    beaconType = 'IMMINENT_POWER_DEATH',
+    lastKnownLocation = null,
+    speed = null,
+    bearing = null,
+    projections = {},
+    req = null,
+  }) {
+    if (!eventId || typeof eventId !== 'string') {
+      throw new AppError("Invalid or missing 'eventId'.", 400, 'INVALID_EVENT_ID');
+    }
+
+    const db = EventLifecycleService.getDb();
+    const eventRef = db.collection('ongoingEvents').doc(eventId);
+    const eventDoc = await eventRef.get();
+
+    if (!eventDoc.exists) {
+      throw new AppError(`Ongoing event '${eventId}' not found.`, 404, 'EVENT_NOT_FOUND');
+    }
+
+    const eventData = eventDoc.data();
+    const now = admin.firestore.FieldValue.serverTimestamp();
+
+    const updatePayload = {
+      batteryLevel: typeof batteryLevel === 'number' ? batteryLevel : 2,
+      imminentPowerDeath: true,
+      powerDeathBeaconAt: now,
+      predictedVector: {
+        speed,
+        bearing,
+        projections,
+        capturedAt: new Date().toISOString(),
+      },
+      updatedAt: now,
+    };
+
+    if (lastKnownLocation && typeof lastKnownLocation.latitude === 'number') {
+      updatePayload.location = {
+        latitude: lastKnownLocation.latitude,
+        longitude: lastKnownLocation.longitude,
+        accuracy: lastKnownLocation.accuracy || 10,
+      };
+    }
+
+    await eventRef.update(updatePayload);
+
+    // Urgent Control Room Alert
+    NotificationService.notifyRegionalSupervisors({
+      regionId: eventData.regionId,
+      eventId,
+      title: '⚠️ CRITICAL BATTERY BEACON: DEVICE SHUTDOWN IMMINENT',
+      body: `Phone battery depleted to ${batteryLevel || 2}%. Hardware shutdown imminent. Last known trajectory vector and projected coordinates stored.`,
+      priority: 'high',
+      data: {
+        eventId,
+        regionId: eventData.regionId,
+        batteryBeacon: 'true',
+      },
+    }).catch((err) => console.warn('Non-fatal notification error:', err.message));
+
+    // Audit Log Entry
+    await writeAuditLog({
+      actorUid: eventData.sos_clicked_by_uid || 'device_telemetry',
+      actorRole: 'device',
+      action: 'BATTERY_DEATH_BEACON_RECORDED',
+      targetId: eventId,
+      regionId: eventData.regionId,
+      details: {
+        batteryLevel,
+        beaconType,
+        lastKnownLocation,
+        speed,
+        bearing,
+        projections,
+      },
+      req,
+      customDocId: `audit_${eventId}_battery_death`,
+    });
+
+    return {
+      success: true,
+      eventId,
+      imminentPowerDeath: true,
+      projections,
+      registeredAt: new Date().toISOString(),
     };
   }
 }

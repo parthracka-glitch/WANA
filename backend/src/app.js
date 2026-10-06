@@ -23,6 +23,10 @@ const responderRoutes = require("./routes/responder.routes");
 const contactsRoutes = require("./routes/contacts.routes");
 const evidenceRoutes = require("./routes/evidence.routes");
 const riskRoutes = require("./routes/risk.routes");
+const tacticalChatRoutes = require("./routes/tacticalChat.routes");
+const legalDossierRoutes = require("./routes/legalDossier.routes");
+const smsUplinkRoutes = require("./routes/smsUplink.routes");
+const interopRoutes = require("./routes/interop.routes");
 const bootstrapAdmins = require("./scripts/bootstrap-admin");
 
 const app = express();
@@ -102,6 +106,13 @@ app.use("/responders", responderRoutes);
 app.use("/contacts", contactsRoutes);
 app.use("/evidence", evidenceRoutes);
 app.use("/risk", riskRoutes);
+app.use("/sms-uplink", smsUplinkRoutes);
+app.use("/events/sms-uplink", smsUplinkRoutes);
+app.use("/tactical-chat", tacticalChatRoutes);
+app.use("/events/tactical-chat", tacticalChatRoutes);
+app.use("/dossier", legalDossierRoutes);
+app.use("/events/dossier", legalDossierRoutes);
+app.use("/interop", interopRoutes);
 
 // Global Error Handler (BE-11a: standard { error: { code, message, requestId } } envelope)
 app.use(errorHandler);

@@ -3,6 +3,8 @@ import { maskEmail, maskPhone, maskName } from '../../utils/masking';
 import { apiUrl } from '../../config/api';
 import EvidenceViewer from './EvidenceViewer';
 import RiskAssessmentBadge from './RiskAssessmentBadge';
+import TacticalChatDeck from './TacticalChatDeck';
+import LegalDossierButton from './LegalDossierButton';
 
 /**
  * Incident Inspection Drawer & Action Deck (FE-05)
@@ -25,6 +27,7 @@ export const IncidentDrawer = ({
   const [submitting, setSubmitting] = useState(false);
   const [elapsedTime, setElapsedTime] = useState('');
   const [showEvidence, setShowEvidence] = useState(false);
+  const [showTacticalChat, setShowTacticalChat] = useState(false);
 
   // Calculate elapsed time from event timestamp
   useEffect(() => {
@@ -334,6 +337,50 @@ export const IncidentDrawer = ({
                 <EvidenceViewer eventId={event.id} onClose={() => setShowEvidence(false)} />
               </div>
             )}
+
+            {/* Two-Way Silent Tactical Chat (FE-21) */}
+            <div style={{ marginTop: '10px' }}>
+              <button
+                onClick={() => setShowTacticalChat(!showTacticalChat)}
+                style={{
+                  width: '100%',
+                  padding: '10px 14px',
+                  backgroundColor: showTacticalChat ? '#0284c7' : '#f0f9ff',
+                  color: showTacticalChat ? '#ffffff' : '#0369a1',
+                  border: '1px solid #7dd3fc',
+                  borderRadius: '6px',
+                  fontSize: '0.85rem',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  transition: 'all 0.2s',
+                }}
+              >
+                <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  🤫 Silent Tactical Chat
+                </span>
+                <span
+                  style={{
+                    fontSize: '0.75rem',
+                    backgroundColor: showTacticalChat ? '#0369a1' : '#e0f2fe',
+                    color: showTacticalChat ? '#ffffff' : '#0369a1',
+                    padding: '2px 8px',
+                    borderRadius: '12px',
+                  }}
+                >
+                  {showTacticalChat ? 'Hide' : 'Open Covert Stream'}
+                </span>
+              </button>
+
+              {showTacticalChat && (
+                <TacticalChatDeck eventId={event.id} token={token} />
+              )}
+            </div>
+
+            {/* Court Dossier & BSA 65B Certificate (FE-22) */}
+            <LegalDossierButton eventId={event.id} token={token} />
           </div>
         </div>
 
