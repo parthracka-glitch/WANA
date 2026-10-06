@@ -1,0 +1,98 @@
+.history-page {
+    background-color: #f4f7f6;
+    min-height: 100vh;
+    padding-bottom: 2rem;
+}
+
+.history-table {
+    white-space: nowrap; /* Prevents text from squishing */
+    background-color: white;
+}
+
+.history-table thead th {
+    background-color: #f8f9fa;
+    color: #495057;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    padding: 15px 10px;
+    border-bottom: 2px solid #dee2e6;
+}
+
+.history-table td {
+    padding: 12px 10px;
+    font-size: 0.85rem;
+    border-bottom: 1px solid #edf2f7;
+    vertical-align: middle;
+}
+
+/* Allow the message column to wrap so it doesn't make the table too wide */
+.text-wrap {
+    white-space: normal !important;
+}
+
+.history-table tbody tr:hover {
+    background-color: #f9fbff;
+}
+
+.font-monospace {
+    color: #e83e8c; /* Makes coordinates stand out slightly */
+}
+
+/* === RESPONSIVE STYLES === */
+@media (max-width: 768px) {
+    .history-page {
+        padding-bottom: 1.5rem;
+    }
+
+    .history-table {
+        display: block;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .history-table::after {
+        content: "← Scroll horizontally →";
+        display: block;
+        text-align: center;
+        font-size: 0.7rem;
+        color: #666;
+        padding: 8px;
+        background: #f8f9fa;
+        position: sticky;
+        bottom: 0;
+    }
+
+    .history-table thead th {
+        font-size: 0.75rem;
+        padding: 12px 8px;
+    }
+
+    .history-table td {
+        padding: 10px 8px;
+        font-size: 0.8rem;
+    }
+
+    .font-monospace {
+        font-size: 0.75rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .history-page {
+        padding-bottom: 1rem;
+    }
+
+    .history-table thead th {
+        font-size: 0.7rem;
+        padding: 10px 6px;
+    }
+
+    .history-table td {
+        padding: 8px 6px;
+        font-size: 0.75rem;
+    }
+
+    .font-monospace {
+        font-size: 0.7rem;
+    }
+}

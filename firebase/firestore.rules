@@ -1,0 +1,130 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{db}/documents {
+
+    // --- Helper Functions ---
+    function authed()   { return request.auth != null; }
+    function role()     { return request.auth.token.get('role', ''); }
+    function myRegion() { return request.auth.token.get('regionId', ''); }
+    function isStaff()  { return authed() && role() in ['admin', 'supervisor']; }
+    
+    // Check if staff is approved in staff collection, or check claim
+    function isApprovedStaff() {
+      return isStaff() && (
+        exists(/databases/$(db)/documents/staff/$(request.auth.uid)) ?
+          get(/databases/$(db)/documents/staff/$(request.auth.uid)).data.status == 'APPROVED' :
+          true
+      );
+    }
+    
+    function sameRegion(d) {
+      return isApprovedStaff() && (
+        d.get('regionId', '') == myRegion() ||
+        d.get('region', '') == myRegion() ||
+        d.get('city', '') == myRegion()
+      );
+    }
+    
+    function isOwner(d) {
+      return authed() && (
+        d.get('sos_clicked_by_uid', '') == request.auth.uid ||
+        d.get('userId', '') == request.auth.uid ||
+        d.get('uid', '') == request.auth.uid
+      );
+    }
+
+    // --- Regions ---
+    match /regions/{id} {
+      allow read: if authed();
+      allow write: if false; // Server-only
+    }
+
+    match /regionGeo/{id} {
+      allow read, write: if false; // Server-only
+    }
+
+    // --- Staff Records ---
+    match /staff/{uid} {
+      allow read: if authed() && (request.auth.uid == uid || (role() == 'admin' && sameRegion(resource.data)));
+      allow write: if false; // Managed exclusively via backend
+    }
+
+    // --- User Profiles ---
+    match /users/{uid} {
+      allow read: if authed() && (request.auth.uid == uid || isApprovedStaff());
+      allow create: if authed() && request.auth.uid == uid;
+      allow update: if authed() && request.auth.uid == uid &&
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'isApproved', 'status']);
+      allow delete: if false;
+    }
+
+    // --- Ongoing Events (Active Emergencies) ---
+    match /ongoingEvents/{eventId} {
+      allow read: if authed() && (isOwner(resource.data) || sameRegion(resource.data));
+
+      // Client can only create CREATED status with their own UID
+      allow create: if authed()
+        && (request.resource.data.get('sos_clicked_by_uid', '') == request.auth.uid ||
+            request.resource.data.get('userId', '') == request.auth.uid)
+        && request.resource.data.get('status', 'CREATED') == 'CREATED'
+        && request.resource.data.get('is_resolved', false) == false;
+
+      // Owner can update location breadcrumbs during active emergency
+      allow update: if authed() && isOwner(resource.data) && resource.data.get('is_resolved', false) == false
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['location', 'lastHeartbeatAt', 'batteryLevel']);
+
+      allow delete: if false; // Resolved via atomic server-side transaction
+    }
+
+    // --- Past Events (Resolved Incidents) ---
+    match /pastEvents/{eventId} {
+      allow read: if authed() && (isOwner(resource.data) || sameRegion(resource.data));
+      allow write: if false; // Server-only (closeEvent transaction)
+
+      match /acceptors/{uid} {
+        allow read: if sameRegion(resource.data);
+        allow write: if false;
+      }
+    }
+
+    // --- Accepted Events & Responders ---
+    match /acceptedEvents/{eventId} {
+      allow read: if authed() && isApprovedStaff();
+      allow write: if false;
+
+      match /acceptors/{uid} {
+        allow read: if authed() && (sameRegion(resource.data) || request.auth.uid == uid);
+        allow write: if false; // Written via server-side responder API
+      }
+    }
+
+    // Collection-group read for acceptors
+    match /{path=**}/acceptors/{uid} {
+      allow read: if authed() && (sameRegion(resource.data) || request.auth.uid == uid);
+      allow write: if false;
+    }
+
+    // --- Audit Logs ---
+    match /auditLogs/{id} {
+      allow read: if authed() && role() == 'admin' && sameRegion(resource.data);
+      allow write: if false; // Immutable, append-only server write
+    }
+
+    // --- Notifications ---
+    match /notifications/{id} {
+      allow read: if authed() && sameRegion(resource.data);
+      allow write: if false;
+    }
+
+    // --- Evidence ---
+    match /evidence/{id} {
+      allow read: if authed() && (sameRegion(resource.data) || isOwner(resource.data));
+      allow write: if false;
+    }
+
+    // --- Explicit Default Deny ---
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

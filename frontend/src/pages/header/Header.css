@@ -1,0 +1,98 @@
+/* Header.css */
+
+.navbar-nav .nav-link {
+    color: #ffffff;
+  }
+  
+  .navbar-brand {
+    color: #ffffff;
+  }
+  
+  .right-nav {
+    margin-left: auto;
+  }
+  .navbar-brand img {
+    margin-right: 10px;
+  }
+  .full-page-bg {
+    height: 100vh; /* Full viewport height */
+    width: 100%; /* Full width of the viewport */
+    background-image: url('../../assets/Signup.png'); /* Ensure the path is correct */
+     /* Ensure the image covers the entire viewport */
+    background-repeat: no-repeat; /* Prevent tiling */
+    background-position: center; /* Center the image */
+    background-color: #e2d5d5; /* Light gray fallback color */
+  }
+
+/* Ensure proper spacing between brand and toggle */
+.navbar-brand {
+  margin-right: auto;
+}
+
+.navbar-toggler {
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  padding: 0.25rem 0.5rem;
+}
+
+.navbar-toggler:focus {
+  box-shadow: 0 0 0 0.2rem rgba(255, 255, 255, 0.25);
+}
+
+/* === RESPONSIVE NAVIGATION === */
+@media (max-width: 991px) {
+  .navbar-nav {
+    padding: 15px 0;
+  }
+  
+  .navbar-nav .nav-link {
+    padding: 10px 15px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  }
+  
+  .right-nav {
+    margin-left: 0;
+    margin-top: 10px;
+  }
+
+  /* Ensure brand doesn't overlap with toggle */
+  .navbar-brand {
+    flex: 1;
+    max-width: calc(100% - 60px);
+  }
+}
+
+@media (max-width: 768px) {
+  .navbar-brand img {
+    height: 35px;
+    margin-right: 8px;
+  }
+  
+  .navbar-brand {
+    font-size: 1.1rem;
+  }
+  
+  .navbar-toggler {
+    padding: 6px 10px;
+    font-size: 1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .navbar-brand img {
+    height: 30px;
+    margin-right: 5px;
+  }
+  
+  .navbar-brand {
+    font-size: 1rem;
+    max-width: calc(100% - 50px);
+  }
+  
+  .navbar-nav .nav-link {
+    font-size: 0.9rem;
+    padding: 8px 12px;
+  }
+}
+  
+  
+  

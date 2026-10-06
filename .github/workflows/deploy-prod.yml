@@ -1,0 +1,122 @@
+name: Production Canary Deployment Pipeline (OPS-07)
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  PROJECT_ID: wana-prod-emergency
+  REGION: asia-south1
+  SERVICE_NAME: wana-backend-prod
+  CANARY_TRAFFIC_PERCENT: 10
+  EVALUATION_WINDOW_SECONDS: 60
+
+jobs:
+  test-gate:
+    name: Mandatory Automated Test Gate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: 'npm'
+          cache-dependency-path: |
+            backend/package-lock.json
+            frontend/package-lock.json
+
+      - name: Install & Test Backend
+        run: |
+          cd backend
+          npm ci
+          npm test
+
+      - name: Install & Build Frontend
+        run: |
+          cd frontend
+          npm ci
+          npm run build
+
+  deploy-canary:
+    name: Canary Deploy (10% Traffic)
+    needs: test-gate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/1234567890/locations/global/workloadIdentityPools/github-pool/providers/github-provider
+          service_account: deployer@wana-prod-emergency.iam.gserviceaccount.com
+
+      - name: Set up Google Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Build & Push Container Image
+        run: |
+          IMAGE_TAG="asia-south1-docker.pkg.dev/${{ env.PROJECT_ID }}/wana-docker-repo/backend:${{ github.sha }}"
+          gcloud builds submit backend --tag "${IMAGE_TAG}"
+
+      - name: Deploy Revision with Zero Traffic
+        id: deploy
+        run: |
+          IMAGE_TAG="asia-south1-docker.pkg.dev/${{ env.PROJECT_ID }}/wana-docker-repo/backend:${{ github.sha }}"
+          REVISION_SUFFIX="canary-${{ github.run_number }}"
+          
+          gcloud run deploy ${{ env.SERVICE_NAME }} \
+            --image "${IMAGE_TAG}" \
+            --region ${{ env.REGION }} \
+            --revision-suffix "${REVISION_SUFFIX}" \
+            --no-traffic \
+            --min-instances 3 \
+            --max-instances 50 \
+            --concurrency 100 \
+            --set-env-vars NODE_ENV=production,ENFORCE_APP_CHECK=true
+            
+          NEW_REVISION="${{ env.SERVICE_NAME }}-${REVISION_SUFFIX}"
+          echo "new_revision=${NEW_REVISION}" >> $GITHUB_OUTPUT
+
+      - name: Route 10% Canary Traffic
+        run: |
+          NEW_REV="${{ steps.deploy.outputs.new_revision }}"
+          echo "Routing ${{ env.CANARY_TRAFFIC_PERCENT }}% traffic to revision: ${NEW_REV}"
+          gcloud run services update-traffic ${{ env.SERVICE_NAME }} \
+            --region ${{ env.REGION }} \
+            --to-revisions "${NEW_REV}=${{ env.CANARY_TRAFFIC_PERCENT }}"
+
+      - name: Evaluate Canary Health Window
+        run: |
+          echo "Evaluating canary performance over ${{ env.EVALUATION_WINDOW_SECONDS }}s..."
+          sleep ${{ env.EVALUATION_WINDOW_SECONDS }}
+          
+          # Health verification probe
+          HEALTH_STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://api.wana.in/healthz || echo "000")
+          if [ "$HEALTH_STATUS" -ne 200 ]; then
+            echo "::error::Canary health probe failed with status $HEALTH_STATUS! Triggering automated rollback!"
+            gcloud run services update-traffic ${{ env.SERVICE_NAME }} \
+              --region ${{ env.REGION }} \
+              --to-revisions "${{ steps.deploy.outputs.new_revision }}=0"
+            exit 1
+          fi
+          echo "Canary health verified successfully."
+
+      - name: Promote Revision to 100% Traffic
+        if: success()
+        run: |
+          echo "Canary passed! Promoting ${{ steps.deploy.outputs.new_revision }} to 100% traffic..."
+          gcloud run services update-traffic ${{ env.SERVICE_NAME }} \
+            --region ${{ env.REGION }} \
+            --to-latest
