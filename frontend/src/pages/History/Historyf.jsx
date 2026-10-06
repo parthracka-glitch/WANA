@@ -19,17 +19,11 @@ const History = () => {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
 
-  const supervisorRegion = localStorage.getItem("region"); // Solapur
+  const supervisorRegion = localStorage.getItem("region") || "solapur"; // Default: Solapur
 
   const fetchRecords = async () => {
     setLoading(true);
     try {
-      if (!supervisorRegion) {
-        setError("Supervisor region not found. Please log in again.");
-        setLoading(false);
-        return;
-      }
-
       const eventsCollection = collection(db, "pastEvents");
       const resolvedQuery = query(
         eventsCollection,

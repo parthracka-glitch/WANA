@@ -38,8 +38,7 @@ const Header = () => {
 
   const getDashboardPath = () => {
     if (role === "admin") return "/admin/approval";
-    if (role === "supervisor") return "/supervisor/dashboard";
-    return "/home";
+    return "/supervisor/dashboard";
   };
 
   return (
@@ -69,15 +68,15 @@ const Header = () => {
           <Nav className="me-auto">
             <Nav.Link as={Link} to="/home">Home</Nav.Link>
 
-            {/* Only show these if logged in AND NOT in a restricted onboarding state */}
-            {isLoggedIn && !isRestrictedState && (
+            {/* Accessible when logged in or in dev preview */}
+            {!isRestrictedState && (isLoggedIn || !import.meta.env.PROD) && (
               <>
                 <Nav.Link as={Link} to={getDashboardPath()}>
                   Dashboard
                 </Nav.Link>
                 
                 {/* Supervisor-specific navigation */}
-                {role === "supervisor" && (
+                {(role === "supervisor" || !role || !import.meta.env.PROD) && (
                   <>
                     <Nav.Link as={Link} to="/supervisor/ongoing-events">
                       Ongoing Events
@@ -87,6 +86,17 @@ const Header = () => {
                     </Nav.Link>
                     <Nav.Link as={Link} to="/supervisor/history">
                       History
+                    </Nav.Link>
+                  </>
+                )}
+
+                {role === "admin" && (
+                  <>
+                    <Nav.Link as={Link} to="/admin/approval">
+                      Approvals
+                    </Nav.Link>
+                    <Nav.Link as={Link} to="/admin/logs">
+                      Logs
                     </Nav.Link>
                   </>
                 )}

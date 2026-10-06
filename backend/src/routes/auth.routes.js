@@ -15,40 +15,45 @@ router.get("/me", authMiddleware, async (req, res) => {
     const firebaseUid = req.user.uid;
 
     // Check staff collection in Firestore
-    const staffDoc = await db.collection("staff").doc(firebaseUid).get();
+    try {
+      const staffDoc = await db.collection("staff").doc(firebaseUid).get();
 
-    if (staffDoc.exists) {
-      const staff = staffDoc.data();
-      return res.status(200).json({
-        uid: firebaseUid,
-        role: staff.role,
-        isApproved: staff.status === "APPROVED",
-        status: staff.status,
-        email: staff.email || req.user.email,
-        name: staff.name,
-        region: staff.regionId,
-        regionId: staff.regionId,
-        claimsVersion: staff.claimsVersion || 0,
-      });
+      if (staffDoc.exists) {
+        const staff = staffDoc.data();
+        return res.status(200).json({
+          uid: firebaseUid,
+          role: staff.role,
+          isApproved: staff.status === "APPROVED",
+          status: staff.status,
+          email: staff.email || req.user.email,
+          name: staff.name,
+          region: staff.regionId,
+          regionId: staff.regionId,
+          claimsVersion: staff.claimsVersion || 0,
+        });
+      }
+    } catch (dbErr) {
+      console.warn("⚠️ Non-fatal Firestore staff lookup in /auth/me:", dbErr.message);
     }
 
-    // Fallback: check if claims exist on token
-    if (req.user.role) {
+    // Fallback: check if role is resolved on req.user (from authMiddleware)
+    if (req.user.role && req.user.role !== "user") {
       return res.status(200).json({
         uid: firebaseUid,
         role: req.user.role,
-        isApproved: true,
-        status: "APPROVED",
+        isApproved: req.user.isApproved !== false,
+        status: req.user.status || "APPROVED",
         email: req.user.email || null,
-        region: req.user.regionId || null,
-        regionId: req.user.regionId || null,
+        name: req.user.name || (req.user.role === "admin" ? "Administrator" : "Regional Supervisor"),
+        region: req.user.regionId || req.user.region || "solapur",
+        regionId: req.user.regionId || req.user.region || "solapur",
       });
     }
 
     // Default: Regular citizen / unverified user
     return res.status(200).json({
       uid: firebaseUid,
-      role: "user",
+      role: req.user.role || "user",
       isApproved: false,
       status: "UNREGISTERED",
       email: req.user.email || null,
